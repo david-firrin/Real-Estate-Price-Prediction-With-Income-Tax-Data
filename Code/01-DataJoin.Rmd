@@ -23,8 +23,8 @@ library("tidyverse")
 Next, let's read in the data.
 
 ```{r}
-re <- read_csv("../Data/realtor-data.csv")
-tax <- read_csv("../Data/income_tax/2014.csv")
+re <- read_csv("../Data/Raw/realtor-data.csv")
+tax <- read_csv("../Data/Raw/income_tax/2014.csv")
 ```
 
 Let's first check for nulls, duplicates along what we suspect to be the key of each dataset. Let's start with the real estate data.
