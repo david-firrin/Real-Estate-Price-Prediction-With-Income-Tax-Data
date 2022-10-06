@@ -1,6 +1,0 @@
-<<<<<<< HEAD
-I changed it here but differently.
-=======
-I just changed the text.
->>>>>>> e9320d022b5676112ddf889767e868434a6b5074
-David testing he is able to push correctly 

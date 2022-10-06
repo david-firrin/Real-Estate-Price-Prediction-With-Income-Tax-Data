@@ -1,0 +1,113 @@
+---
+title: "01-DataJoin"
+author: "Team 48"
+date: "10/6/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+The goal of this notebook is to read in the data files and test out the joins. This code could eventually be used in our data transformation and cleansing notebook.
+
+First, let's read in packages.
+
+```{r}
+# List required packages
+library("tidyverse")
+```
+
+Next, let's read in the data.
+
+```{r}
+re <- read_csv("../Data/realtor-data.csv")
+tax <- read_csv("../Data/income_tax/2014.csv")
+```
+
+Let's first check for nulls, duplicates along what we suspect to be the key of each dataset. Let's start with the real estate data.
+
+```{r}
+# Sneak preview
+str(re)
+summary(re)
+re %>% summarize(across(everything(), n_distinct))
+distinct(re)
+unique(re$status)
+```
+
+Looks like there are 113,789 distinct rows, but only 112,232 distinct addresses. This means that there are some repreat addresses where one or more other fields differ. Let's take the set with the distinct rows removed, then see where we're at. Also worth noting that the only statuses are 'for sale' and 'ready to build'.
+
+```{r}
+filtered_re <- re %>% 
+  distinct() %>% 
+  filter((sold_date >= "2010-01-01") & (sold_date <= "2014-12-31"))
+
+summarize(filtered_re, across(everything(), list(n_distinct, length)))
+```
+
+We still appear to have repeats - 7851 addresses, but 7923 records. Let's see if we can isolate the repeats.
+
+```{r}
+filtered_re %>% 
+  group_by(full_address) %>% 
+  summarize(count = n()) %>% 
+  filter(count > 1) %>% 
+  inner_join(filtered_re, by="full_address")
+```
+
+Looks like the amin thing is that the prices change. Since we don't know what that means, for now, we'll just take the first. However, we'll sort by all characteristics except price, so we pick the row with the fewest NAs. 
+
+```{r}
+sort_cols <- names(filtered_re)[names(filtered_re) != 'price']
+dedup_re <- filtered_re %>% 
+  arrange(!!!sort_cols) %>% 
+  group_by(full_address) %>% 
+  summarize(across(everything(), first))
+
+summarize(dedup_re, across(everything(), list(n_distinct, length)))
+```
+
+Perfect! Now we have as many rows as distinct addresses. While we're at it, let's go ahead and update the zip code column.
+
+```{r}
+final_re <- dedup_re %>% 
+  mutate(zip_code = str_pad(format(zip_code, trim=TRUE), width=5, side="left", pad="0"))
+```
+
+Alright, now let's look at the tax data. I went through the descriptions, and selected a handful to start with.
+
+```{r}
+tax_col_info <- read_csv("../Data/income_tax/field_defs_selection.csv")
+
+tax_col_names <- tax_col_info %>% 
+  filter(Selected=="Yes") %>% 
+  select(Variable_Name, New_Column) %>% 
+  mutate(Variable_Name = tolower(Variable_Name))
+
+tax_col_list <- c(tax_col_names$Variable_Name, "zipcode", "n1")
+
+tax_slim <- tax %>% 
+  select(tolower(tax_col_list)) %>% 
+  rename(!!!setNames(as.character(tax_col_names$Variable_Name), as.character(tax_col_names$New_Column))) %>% 
+  mutate(zipcode = str_pad(format(zipcode, trim=TRUE), width=5, side="left", pad="0"))
+
+
+summarize(tax_slim, across(everything(), list(n_distinct, length)))
+tax_slim_zips <- tax_slim %>% 
+  group_by(zipcode) %>% 
+  slice(1)
+```
+
+Check the join
+
+```{r}
+tax_slim_zips %>% 
+  inner_join(final_re, by=c("zipcode"="zip_code"))
+```
+
+
+
+
