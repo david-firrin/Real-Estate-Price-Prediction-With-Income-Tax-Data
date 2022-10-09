@@ -80,7 +80,7 @@ final_re <- dedup_re %>%
 Alright, now let's look at the tax data. I went through the descriptions, and selected a handful to start with.
 
 ```{r}
-tax_col_info <- read_csv("../Data/income_tax/field_defs_selection.csv")
+tax_col_info <- read_csv("../Data/Raw/income_tax/field_defs_selection.csv")
 
 tax_col_names <- tax_col_info %>% 
   filter(Selected=="Yes") %>% 
