@@ -124,18 +124,15 @@ tax_grouped <- tax_slim %>%
     mutate(p_total = n1 / sum(n1)) %>% 
     summarise(
       n1_total = sum(n1),
-      total_credit_amt = weighted.mean(total_credit_amt,p_total),
-      taxable_income_amt = weighted.mean(taxable_income_amt,p_total),
-      mortgageint_amt = weighted.mean(mortgageint_amt,p_total),
-      p_mortgageint_nr = sum(mortgageint_nr),
-      # netinvest_inc_amt  = weighted.mean(netinvest_inc_amt,p_total),
-      # p_netinvest_inc_nr = sum(netinvest_inc_nr)/sum(n1),
-      inctax_amt = weighted.mean(inctax_amt,p_total),
+      total_credit_amt = sum(total_credit_amt)/sum(n1),
+      taxable_income_amt = sum(taxable_income_amt)/sum(n1),
+      mortgageint_amt = sum(mortgageint_amt)/sum(n1),
+      p_mortgageint_nr = sum(mortgageint_nr)/sum(n1),
+      inctax_amt = sum(inctax_amt)/sum(n1),
       p_unemploy_nr = sum(unemploy_nr)/sum(n1),
-      # total_income_amt= weighted.mean(total_income_amt,p_total),
-      agi_amt = weighted.mean(agi_amt,p_total),
-      num_dependents = weighted.mean(num_dependents,p_total),
-      re_taxes_nr = weighted.mean(re_taxes_nr,p_total),
+      agi_amt = sum(agi_amt)/sum(n1),
+      num_dependents = sum(num_dependents)/sum(n1),
+      p_re_taxes_nr = sum(re_taxes_nr)/sum(n1),
       agi_bucket = weighted.mean(agi_bucket,p_total)
     )
 
@@ -162,12 +159,12 @@ x$year <- as.character(x$year)
 x <- x[-1]
 
 final_re <- left_join(final_re,x, by=c("zip_code"="zipcode", "sold_year"="year"))
+final_re <- final_re %>% filter(!is.na(final_re$n1_total))
 write.csv(final_re, file = "../Data/merged_data.csv")
 ```
 
 Highlight rows with incomplete data from the join:
 ```{r}
-#TODO: Discuss with team which rows with NA we want to filter out based on features used
 missing <- final_re[!complete.cases(final_re),]
 missing
 ```
