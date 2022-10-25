@@ -20,14 +20,13 @@ First, let's read in packages.
 library("tidyverse")
 ```
 
-Next, let's read in the data.
+Next, let's read in the real estate data for some cleaning and transformations:
 
 ```{r}
 re <- read_csv("../Data/Raw/realtor-data.csv")
-tax <- read_csv("../Data/Raw/income_tax/2014.csv")
 ```
 
-Let's first check for nulls, duplicates along what we suspect to be the key of each dataset. Let's start with the real estate data.
+Let's first check for nulls and duplicates along what we suspect to be the key of each data set. Let's start with the real estate data.
 
 ```{r}
 # Sneak preview
@@ -38,7 +37,7 @@ distinct(re)
 unique(re$status)
 ```
 
-Looks like there are 113,789 distinct rows, but only 112,232 distinct addresses. This means that there are some repreat addresses where one or more other fields differ. Let's take the set with the distinct rows removed, then see where we're at. Also worth noting that the only statuses are 'for sale' and 'ready to build'.
+Looks like there are 113,789 distinct rows, but only 112,232 distinct addresses. This means that there are some repeat addresses where one or more other fields differ. We will start by filtering down to rows with a sold date between 2010-2014:
 
 ```{r}
 filtered_re <- re %>% 
@@ -58,7 +57,7 @@ filtered_re %>%
   inner_join(filtered_re, by="full_address")
 ```
 
-Looks like the amin thing is that the prices change. Since we don't know what that means, for now, we'll just take the first. However, we'll sort by all characteristics except price, so we pick the row with the fewest NAs. 
+Looks like the main thing is that the prices change. This might mean a separate listing went up for the same address, so for now we'll just take the record that has the fewest NAs, after sorting by all characteristics except price:
 
 ```{r}
 sort_cols <- names(filtered_re)[names(filtered_re) != 'price']
@@ -70,44 +69,105 @@ dedup_re <- filtered_re %>%
 summarize(dedup_re, across(everything(), list(n_distinct, length)))
 ```
 
-Perfect! Now we have as many rows as distinct addresses. While we're at it, let's go ahead and update the zip code column.
+Lastly, we modify the ZIP code column to pad leading zeroes and trim the sold year, both will be used for joining in the income tax data for a particular year:
 
 ```{r}
 final_re <- dedup_re %>% 
-  mutate(zip_code = str_pad(format(zip_code, trim=TRUE), width=5, side="left", pad="0"))
+  mutate(zip_code = str_pad(format(zip_code, trim=TRUE), width=5, side="left", pad="0")) %>%
+  mutate(sold_year = substr(sold_date,1,4))
 ```
 
-Alright, now let's look at the tax data. I went through the descriptions, and selected a handful to start with.
+With the real estate data cleaned, we now read in the income tax data for the fields that were pre-selected for research, along with the primary keys used for the eventual join to real estate. AGI stub and N1 are used to compute weighted averages across features, given that there are six tax brackets per ZIP code.
 
 ```{r}
-tax_col_info <- read_csv("../Data/income_tax/field_defs_selection.csv")
+tax2010 <- read_csv("../Data/Raw/income_tax/2010.csv")
+tax2010$year = '2010'
+
+tax2011 <- read_csv("../Data/Raw/income_tax/2011.csv")
+tax2011$year = '2011'
+  
+tax2012 <- read_csv("../Data/Raw/income_tax/2012.csv")
+tax2012$year = '2012'
+  
+tax2013 <- read_csv("../Data/Raw/income_tax/2013.csv")
+tax2013$year = '2013'
+  
+tax2014 <- read_csv("../Data/Raw/income_tax/2014.csv")
+tax_col_info <- read_csv("../Data/field_definitions_selected.csv")
 
 tax_col_names <- tax_col_info %>% 
-  filter(Selected=="Yes") %>% 
-  select(Variable_Name, New_Column) %>% 
+  filter(selected=="yes") %>% 
+  select(Variable_Name, feature_name) %>% 
   mutate(Variable_Name = tolower(Variable_Name))
 
-tax_col_list <- c(tax_col_names$Variable_Name, "zipcode", "n1")
+tax_col_list <- c("year", "zipcode","n1",tax_col_names$Variable_Name)
 
-tax_slim <- tax %>% 
-  select(tolower(tax_col_list)) %>% 
-  rename(!!!setNames(as.character(tax_col_names$Variable_Name), as.character(tax_col_names$New_Column))) %>% 
-  mutate(zipcode = str_pad(format(zipcode, trim=TRUE), width=5, side="left", pad="0"))
-
-
-summarize(tax_slim, across(everything(), list(n_distinct, length)))
-tax_slim_zips <- tax_slim %>% 
-  group_by(zipcode) %>% 
-  slice(1)
+y = list(tax2010,tax2011,tax2012,tax2013,tax2014)
 ```
 
-Check the join
+We can now filter the tax data set to the features we want, and add leading zeroes to the ZIP code as well. We also filter out records where an invalid ZIP code was recorded (00000 and 99999), as these cannot be joined in to the real estate data:
+```{r}
+for(csv in y){
+tax_slim <- csv %>% 
+  rename_with(tolower) %>%
+  select(tolower(tax_col_list)) %>% 
+  rename(!!!setNames(as.character(tax_col_names$Variable_Name), as.character(tax_col_names$feature_name))) %>% 
+  mutate(zipcode = str_pad(format(zipcode, trim=TRUE), width=5, side="left", pad="0")) %>%
+  mutate(year = as.character(year)) %>%
+  filter(zipcode != "00000" & zipcode != "99999") 
+
+#6 records per ZIP code, per year
+tax_slim %>% group_by(zipcode, year, .add=TRUE) %>% count(sort=TRUE)
+
+tax_grouped <- tax_slim %>% 
+    group_by(zipcode, year, .add = TRUE) %>%
+    mutate(p_total = n1 / sum(n1)) %>% 
+    summarise(
+      n1_total = sum(n1),
+      total_credit_amt = sum(total_credit_amt)/sum(n1),
+      taxable_income_amt = sum(taxable_income_amt)/sum(n1),
+      mortgageint_amt = sum(mortgageint_amt)/sum(n1),
+      p_mortgageint_nr = sum(mortgageint_nr)/sum(n1),
+      inctax_amt = sum(inctax_amt)/sum(n1),
+      p_unemploy_nr = sum(unemploy_nr)/sum(n1),
+      agi_amt = sum(agi_amt)/sum(n1),
+      num_dependents = sum(num_dependents)/sum(n1),
+      p_re_taxes_nr = sum(re_taxes_nr)/sum(n1),
+      agi_bucket = weighted.mean(agi_bucket,p_total)
+    )
+
+write.csv(tax_grouped, file = paste0("../Data/tax",csv$year[1],"_cleaned.csv"))
+
+}
+```
+
+Clear environment, load cleaned data sets, join to final real estate data:
 
 ```{r}
-tax_slim_zips %>% 
-  inner_join(final_re, by=c("zipcode"="zip_code"))
+rm(list = setdiff(ls(), "final_re"))
+
+tax2010_cleaned <- read_csv("../Data/tax2010_cleaned.csv")
+tax2011_cleaned <- read_csv("../Data/tax2011_cleaned.csv")
+tax2012_cleaned <- read_csv("../Data/tax2012_cleaned.csv")
+tax2013_cleaned <- read_csv("../Data/tax2013_cleaned.csv")
+tax2014_cleaned <- read_csv("../Data/tax2014_cleaned.csv")
+
+x <- tax2010_cleaned %>% union(tax2011_cleaned) %>% union(tax2012_cleaned) %>% union(tax2013_cleaned) %>% union(tax2014_cleaned)
+x$year <- as.character(x$year)
+
+##removes row numbers
+x <- x[-1]
+
+final_re <- left_join(final_re,x, by=c("zip_code"="zipcode", "sold_year"="year"))
+final_re <- final_re %>% filter(!is.na(final_re$n1_total))
+write.csv(final_re, file = "../Data/merged_data.csv")
 ```
 
+Highlight rows with incomplete data from the join:
+```{r}
+missing <- final_re[!complete.cases(final_re),]
+missing
+```
 
 
 
