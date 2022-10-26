@@ -1,0 +1,104 @@
+---
+title: "0X-Model (TBU)"
+author: "Team 48"
+date: "2022-10-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+The goal of this notebook is to test various model types on our cleaned data and assess the performance of each
+
+Set the seed and read in required packages
+```{r}
+set.seed(1)
+rm(list= ls())
+library(stats)
+library(dplyr)
+library(glmnet)
+library(caret)
+```
+
+Read in the data and remove unnecessary columns. Note there are still NAs in the dataset
+```{r}
+re <- read.csv("../Data/merged_data.csv")
+re <- re[, !(colnames(re) %in% c('X', 'full_address', 'status', 'street', 'city', 'zip_code', 'sold_date', 'sold_year'))]
+```
+
+Check for PCA eligibility
+```{r}
+# if average correlation is >0.3 or <-0.3, use PCA
+cor(re[, !(colnames(re) %in% c('state'))]) #looks pretty high in some features but I won't do PCA for now
+```
+
+Split into training and test sets
+```{r}
+split <- floor(0.8 * nrow(re))
+train_index <- sample(seq_len(nrow(re)), size = split)
+train_re <- re[train_index,]
+test_re <- re[-train_index,]
+```
+
+Break columns up into listing features, tax features, and combined
+```{r}
+listing_features <- c('bed', 'bath', 'acre_lot', 'house_size')
+tax_features <- c('n1_total', 'total_credit_amt', 'taxable_income_amt', 'mortgageint_amt', 'p_mortgageint_nr', 'inctax_amt', 'p_unemploy_nr', 'agi_amt', 'num_dependents', 'p_re_taxes_nr', 'agi_bucket')
+combined_features <- c(listing_features, tax_features)
+combined_features
+```
+
+Regress price off of the listing_features, tax_features, and combined_features
+```{r}
+lr_listing <- lm(reformulate(listing_features, 'price'), data = train_re)
+summary(lr_listing)
+
+lr_tax <- lm(reformulate(tax_features, 'price'), data = train_re)
+summary(lr_tax)
+
+lr_comb <- lm(reformulate(combined_features, 'price'), data = train_re)
+summary(lr_comb)
+```
+Compute predictions on the test set and then compare the performance of each 
+```{r}
+lr_listing_preds <- lr_listing %>% predict(test_re)
+lr_tax_preds <- lr_tax %>% predict(test_re)
+lr_comb_preds <- lr_comb %>% predict(test_re)
+
+lr_listing_preds # NAs in the dataset are causing a lot of empty values
+lr_tax_preds
+lr_comb_preds #NAs in the dataset are causing a lot of empty values
+
+lr_listing_perf <- data.frame(R_squared = R2(lr_listing_preds, test_re$price), RMSE = RMSE(lr_listing_preds, test_re$price), MAE = MAE(lr_listing_preds, test_re$price))
+lr_tax_perf <- data.frame(R_squared = R2(lr_tax_preds, test_re$price), RMSE = RMSE(lr_tax_preds, test_re$price), MAE = MAE(lr_tax_preds, test_re$price))
+lr_combined_perf <- data.frame(R_squared = R2(lr_comb_preds, test_re$price), RMSE = RMSE(lr_comb_preds, test_re$price), MAE = MAE(lr_comb_preds, test_re$price))
+
+# NOTE: the NAs in the data are causing some problems here
+lr_listing_perf
+lr_tax_perf
+lr_combined_perf
+```
+
+LASSO REGRESSION
+
+perform k-fold CV to find optimal lambda
+
+
+
+RANDOM FOREST
+
+
+
+
+
+BOOSTING
+
+
+
+
+
+
+
+
