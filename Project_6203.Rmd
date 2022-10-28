@@ -1,7 +1,7 @@
 ---
 title: "Project EDA"
 output: html_document
-date: "2022-10-24"
+date: "2022-10-27"
 ---
 
 ```{r setup, include=FALSE}
@@ -28,14 +28,41 @@ totCredAmt <- subData$total_credit_amt
 ```
 
 ```{r}
-data1 = subData[c(1,2,3,4)]
-data2 = subData[c(1,5,6,7)]
-data3 = subData[c(1,8,9,10,11)]
+data1 = subData[c(1,2,3)]
+data2 = subData[c(1,4,5)]
+data3 = subData[c(1,6,7)]
+data4 = subData[c(1,8,9)]
+data5 = subData[c(1,10,11)]
 pairs(data1)
 pairs(data2)
 pairs(data3)
+pairs(data4)
+pairs(data5)
 
 ```
+```{r}
+pairs(subData)
+```
+```{r}
+cormat = round(cor(subData),2)
+cormat
+
+```
+```{r}
+library(reshape2)
+melted_cormat <- melt(cormat)
+head(melted_cormat)
+
+```
+
+
+```{r}
+library(ggplot2)
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value))+ 
+  geom_tile()+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+
 
 ```{r}
 corPrice_creditAmt = cor(subData$total_credit_amt,subData$price)
@@ -69,8 +96,12 @@ corPrice_agiBucket = cor(subData$agi_bucket,subData$price)
 corPrice_agiBucket
 
 ```
-
-#### Weak correlation between Price and taxable_income_amt, inctax_amt, and agi_amt. No correlation among other variables.
+According to Statology.com\
+r < 0.25 No relationship\
+0.25 < r < 0.5 Weak relationship\
+0.5 < r < 0.75 Moderate relationship\
+r > 0.75 Strong relationship\
+#### Therefore, we have weak correlation between Price and taxable_income_amt, inctax_amt, and agi_amt. No correlation among other variables.
 
 ```{r}
 price = subData$price
@@ -84,6 +115,24 @@ boxplot(price~tax_income,data=subData,col="orange",border="brown")
 mortg_amt = subData$mortgageint_amt
 boxplot(price~mortg_amt,data=subData,col="orange",border="brown")
 
+```
+
+```{r}
+par(mfrow=c(2,3))
+boxplot(subData$price,main="price")
+boxplot(subData$total_credit_amt,main="total_credit_amt")
+boxplot(subData$taxable_income_amt,main="taxable_income_amt")
+boxplot(subData$mortgageint_amt,main="mortgageint_amt")
+boxplot(subData$p_mortgageint_nr,main="p_mortgageint_nr")
+boxplot(subData$inctax_amt,main="inctax_amt")
+```
+```{r}
+par(mfrow=c(2,3))
+boxplot(subData$p_unemploy_nr,main="p_unemploy_nr")
+boxplot(subData$agi_amt,main="agi_amt")
+boxplot(subData$num_dependents,main="num_dependents")
+boxplot(subData$p_re_taxes_nr,main="p_re_taxes_nr")
+boxplot(subData$agi_bucket,main="agi_bucket")
 ```
 
 
