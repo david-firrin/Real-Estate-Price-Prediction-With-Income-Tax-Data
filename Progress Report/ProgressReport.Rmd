@@ -1,0 +1,65 @@
+---
+title: "ProgressReport"
+author: "Anonymous"
+date: "10/29/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+library(sf) #Overall handling of sf objects
+library(cartography) #Plotting maps package
+library(tidyverse)
+library(tigris)
+```
+
+
+```{r}
+data = read_csv('../Data/merged_data.csv')
+```
+```{r}
+data_agg <- data %>% count(zip_code)
+data_agg    
+```
+
+
+
+```{r}
+
+
+#2. Download a shapefile (shp,gpkg,geojson...)
+ #For downloading the zipcode map
+options(tigris_use_cache = TRUE)
+geo <- st_as_sf(zctas(cb = TRUE, starts_with = data_agg$zip_code))
+
+#Overall shape of USA states
+states <- st_as_sf(states(cb=TRUE))
+#For plotting, all the maps should have the same crs
+states=st_transform(states,st_crs(geo))
+
+#3. Now Merge your data
+data_agg_sf=merge(geo, data_agg)
+
+#4. Plotting
+par(mar=c(1,1,1,1))
+ghostLayer(data_agg_sf)
+plot(st_geometry(states), add=TRUE)
+choroLayer(data_agg_sf,
+           var="n",
+           add=TRUE,
+           border = NA,
+           legend.pos = "right",
+           legend.frame = TRUE)
+layoutLayer(title = "Listings by Zipcode",
+            theme = "blue.pal",
+            scale = FALSE,
+            sources = "Source; your question on SO",
+            author = "by dieghernan, 2020"
+            )
+```
+
