@@ -158,14 +158,31 @@ x$year <- as.character(x$year)
 ##removes row numbers
 x <- x[-1]
 
+#Join real estate and income tax data
 final_re <- left_join(final_re,x, by=c("zip_code"="zipcode", "sold_year"="year"))
+
+#Remove missing ZIP code data from the join, write to file (including NULLs)
 final_re <- final_re %>% filter(!is.na(final_re$n1_total))
+write.csv(final_re, file = "../Data/merged_data_with_nulls.csv")
+
+#Address remaining NULL values in select features
+final_re <- final_re %>% 
+  filter(!is.na(house_size)) %>% #2202 rows removed 
+  filter(!is.na(bath)) %>% #87 rows removed
+  filter(!(is.na(bed) & bath > 1)) %>% #15 rows removed
+  filter(!is.na(street)) #25 rows removed
+
+#Impute zero bedrooms (bachelor units) for single-bathroom residences
+final_re$bed <- ifelse(is.na(final_re$bed) & final_re$bath == 1, 0, final_re$bed) #104 records updated
+
+##Write cleaned data set to file
 write.csv(final_re, file = "../Data/merged_data.csv")
 ```
 
-Highlight rows with incomplete data from the join:
+Final check for rows with incomplete data from the join, excluding acre_lot
 ```{r}
-missing <- final_re[!complete.cases(final_re),]
+missing <- final_re %>% select(-acre_lot)
+missing <- missing[!complete.cases(missing),]
 missing
 ```
 
