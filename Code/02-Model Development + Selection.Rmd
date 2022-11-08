@@ -1,0 +1,302 @@
+---
+title: "02-Model Development and Selection"
+author: "Team 48"
+date: "2022-11-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Overview
+The goal of this notebook is to test various model types on our cleaned data and assess the performance of each
+
+-------------------------------------------------------------------------------
+
+SECTION 1: DATA PREPARATION
+
+
+Set the seed and read in required packages
+```{r}
+set.seed(5)
+rm(list= ls())
+library(stats)
+library(dplyr)
+library(glmnet)
+library(caret)
+library(randomForest)
+library(xgboost)
+library(fastDummies)
+```
+
+Read in the data and remove unnecessary columns
+```{r}
+re <- read.csv("../Data/merged_data_vF.csv")
+re <- re[, !(colnames(re) %in% c('X', 'full_address', 'status', 'acre_lot', 'street', 'city', 'zip_code', 'sold_date', 'sold_year'))]
+
+```
+
+Make dummy variables for the state names
+```{r}
+re <- dummy_cols(re, select_columns = 'state')
+
+# remove spaces in the new State columns
+colnames(re) <- make.names(names(re))
+
+
+# move the state cols back to where state was previously
+re <- re %>% 
+  relocate(state_Connecticut, state_Delaware, state_Maine, state_Massachusetts, state_New.Hampshire, state_New.Jersey, state_New.York, state_Pennsylvania, state_Rhode.Island, state_Vermont)
+
+re <- re %>% 
+  relocate('price', 'bed', 'bath', 'house', 'house.acre.lot')
+
+# remove original state col
+re <- re[, !(colnames(re) %in% 'state')]
+
+
+```
+
+Use dplyr to scale all non-binary numeric columns
+```{r}
+re_scaled <- re %>%
+   mutate_at(c(2:5, 16:27), funs(c(scale(.))))
+```
+
+Split into training and test sets
+```{r}
+split <- floor(0.8 * nrow(re_scaled))
+train_index <- sample(seq_len(nrow(re_scaled)), size = split)
+train_re <- re_scaled[train_index,]
+test_re <- re_scaled[-train_index,]
+```
+
+
+-------------------------------------------------------------------------------
+
+SECTION 2: LINEAR REGRESSION
+
+
+Part 1: PCA regression model
+
+Check for PCA eligibility
+```{r}
+# in general, if average correlation is >0.3 or <-0.3, use PCA
+cor(re[, !(colnames(re_scaled) %in% c('state'))]) # based on output, we will try PCA
+```
+
+Perform PCA using scaled data
+```{r}
+pca_re <- prcomp(re[,2:27], scale = TRUE)
+screeplot(pca_re, type = 'l')
+
+var <- pca_re$sdev^2
+propvar <- var/sum(var)
+
+# Plot the proportion of variances from PC
+plot(propvar, xlab = "Component", ylab = "Proportion of Variance Explained", ylim = c(0,1), type = "b") #looks like 4 would be a good value to choose
+
+# get the first 4 principal components
+components <- pca_re$x[,1:4]
+head(components)
+
+# create the PCA data to be used next
+re_pca_data <- cbind(re[,1], components)
+```
+
+Perform regression model on the PCA data
+```{r}
+#first need to make train and test sets for PCA data
+pca_split <- floor(0.8 * nrow(re_pca_data))
+pca_train_index <- sample(seq_len(nrow(re_pca_data)), size = pca_split)
+pca_train_re <- re_pca_data[pca_train_index,]
+pca_test_re <- re_pca_data[-pca_train_index,]
+
+pca_model <- lm(V1~., data = as.data.frame(pca_train_re) )
+summary(pca_model) 
+```
+
+Part 2: Multiple linear regression using all features
+```{r}
+lr_comb <- lm(price ~., data = train_re)
+summary(lr_comb)
+```
+
+Part 3: Multiple linear regression only the tax features
+```{r}
+lr_tax <- lm(price ~ n1_total + total_credit_amt + taxable_income_amt + mortgageint_amt + p_mortgageint_nr + inctax_amt + p_unemploy_nr + agi_amt + num_dependents + p_re_taxes_nr + agi_bucket, data = train_re)
+summary(lr_tax)
+```
+
+Part 4: Compute predictions on all 3 models and compare results
+```{r}
+lr_pca_preds <- pca_model %>% predict(as.data.frame(pca_test_re))
+lr_comb_preds <- lr_comb %>% predict(test_re)
+lr_tax_preds <- lr_tax %>% predict(test_re)
+
+head(lr_pca_preds)
+head(lr_comb_preds)
+head(lr_tax_preds)
+
+lr_pca_perf <- data.frame(RMSE = RMSE(lr_pca_preds, test_re$price), MAE = MAE(lr_pca_preds, test_re$price))
+lr_combined_perf <- data.frame(R_squared = R2(lr_comb_preds, test_re$price), RMSE = RMSE(lr_comb_preds, test_re$price), MAE = MAE(lr_comb_preds, test_re$price))
+lr_tax_perf <- data.frame(R_squared = R2(lr_tax_preds, test_re$price), RMSE = RMSE(lr_tax_preds, test_re$price), MAE = MAE(lr_tax_preds, test_re$price))
+
+lr_pca_perf
+lr_combined_perf
+lr_tax_perf
+```
+
+-------------------------------------------------------------------------------
+
+SECTION 3: LASSO REGRESSION
+
+
+Part 1: Build model using all features
+```{r}
+all_predictors <- as.matrix(train_re[,2:27])
+response <- as.matrix(train_re$price)
+
+# building lasso
+comb_lasso = cv.glmnet(x= all_predictors, 
+                  y = response,
+                  alpha = 1,
+                  nfolds = 5,
+                  type.measure = "mse",
+                  family = "gaussian"
+                  )
+
+# best lambda
+comb_best_lambda <- comb_lasso$lambda.min
+paste('Best lambda: ',comb_best_lambda)
+
+#Output the 10 coefficients that lasso chose
+coef(comb_lasso, s = comb_best_lambda)
+
+# plot MSE by log(lambda)
+plot(comb_lasso)
+```
+
+Part 2: Build model using only tax features
+```{r}
+tax_predictors <- as.matrix(train_re[,17:27])
+
+# building lasso
+tax_lasso = cv.glmnet(x= tax_predictors, 
+                  y = response,
+                  alpha = 1,
+                  nfolds = 5,
+                  type.measure = "mse",
+                  family = "gaussian"
+                  )
+
+# best lambda
+tax_best_lambda <- tax_lasso$lambda.min
+paste('Best lambda: ',tax_best_lambda)
+
+#Output the 10 coefficients that lasso chose
+coef(tax_lasso, s = tax_lasso$lambda.min)
+
+# output plot of test MSE by lambda
+plot(tax_lasso)
+```
+
+Part 3: Compute predictions on the 2 models and compare results
+```{r}
+lr_lasso_comb_predictions <- predict(comb_lasso, s = comb_best_lambda, newx = as.matrix(test_re[,2:27]))
+lr_lasso_tax_predictions <- predict(tax_lasso, s = tax_best_lambda, newx = as.matrix(test_re[,17:27]))
+
+lr_lasso_comb_perf <- data.frame(R_squared = R2(lr_lasso_comb_predictions, test_re$price), RMSE = RMSE(lr_lasso_comb_predictions, test_re$price), MAE = MAE(lr_lasso_comb_predictions, test_re$price))
+
+lr_lasso_tax_perf <- data.frame(R_squared = R2(lr_lasso_tax_predictions, test_re$price), RMSE = RMSE(lr_lasso_tax_predictions, test_re$price), MAE = MAE(lr_lasso_tax_predictions, test_re$price))
+
+lr_lasso_comb_perf
+lr_lasso_tax_perf
+```
+
+
+-------------------------------------------------------------------------------
+
+SECTION 4: RANDOM FOREST
+
+
+Part 1: Build model using all features
+```{r}
+rf_comb_model <- randomForest(x = train_re[,2:27],
+                         y = train_re[,1],
+                         ntree = 128
+                         )
+
+rf_comb_model
+```
+
+Part 2: Build model using only tax features
+```{r}
+rf_tax_model <- randomForest(x = train_re[,17:27],
+                         y = train_re[,1],
+                         ntree = 128
+                         )
+
+rf_tax_model
+```
+
+Part 3: Compute predictions on the 2 models and compare results
+```{r}
+rf_comb_preds <- predict(rf_comb_model, test_re[,2:27])
+rf_tax_preds <- predict(rf_tax_model, test_re[,17:27])
+
+
+rf_comb_perf <- data.frame(R_squared = R2(rf_comb_preds, test_re$price), RMSE = RMSE(rf_comb_preds, test_re$price), MAE = MAE(rf_comb_preds, test_re$price))
+rf_tax_perf <- data.frame(R_squared = R2(rf_tax_preds, test_re$price), RMSE = RMSE(rf_tax_preds, test_re$price), MAE = MAE(rf_tax_preds, test_re$price))
+
+rf_comb_perf
+rf_tax_perf
+```
+
+-------------------------------------------------------------------------------
+
+SECTION 5: XGBOOST
+
+
+Part 1: Build model using all predictors
+```{r}
+xgb_comb_model <- xgboost(data = all_predictors,
+                     label = response,
+                     max.depth = 3,
+                     nrounds = 50
+                     )
+```
+
+Part 2: Build model using only tax predictors
+```{r}
+# train a model using our training data
+xgb_tax_model <- xgboost(data = tax_predictors,
+                     label = response,
+                     max.depth = 3,
+                     nrounds = 50
+                     )
+```
+
+
+Part 3: Compute predictions on the 2 models and compare results
+```{r}
+# generate predictions for our held-out testing data
+xgb_comb_preds <- predict(xgb_comb_model, as.matrix(test_re[,2:27]))
+xgb_tax_preds <- predict(xgb_tax_model, as.matrix(test_re[,17:27]))
+
+xgb_comb_perf <- data.frame(R_squared = R2(xgb_comb_preds, test_re$price), RMSE = RMSE(xgb_comb_preds, test_re$price), MAE = MAE(xgb_comb_preds, test_re$price))
+xgb_tax_perf <- data.frame(R_squared = R2(xgb_tax_preds, test_re$price), RMSE = RMSE(xgb_tax_preds, test_re$price), MAE = MAE(xgb_tax_preds, test_re$price))
+
+xgb_comb_perf
+xgb_tax_perf
+```
+
+
+
+
+
+
+
+
