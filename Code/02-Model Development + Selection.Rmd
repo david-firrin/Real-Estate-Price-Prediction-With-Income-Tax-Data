@@ -118,35 +118,36 @@ pca_model <- lm(V1~., data = as.data.frame(pca_train_re) )
 summary(pca_model) 
 ```
 
-Part 2: Multiple linear regression using all features
+Part 2: Multiple linear regression only the listing features
+```{r}
+lr_listing <- lm(price ~ bed + bath + house + house.acre.lot + state_Connecticut + state_Delaware + state_Maine + state_Massachusetts + state_New.Hampshire + state_New.Jersey +  state_New.York + state_Pennsylvania + state_Rhode.Island + state_Vermont + house_size, data = train_re)
+summary(lr_listing)
+```
+
+Part 3: Multiple linear regression using all features
 ```{r}
 lr_comb <- lm(price ~., data = train_re)
 summary(lr_comb)
 ```
 
-Part 3: Multiple linear regression only the tax features
-```{r}
-lr_tax <- lm(price ~ n1_total + total_credit_amt + taxable_income_amt + mortgageint_amt + p_mortgageint_nr + inctax_amt + p_unemploy_nr + agi_amt + num_dependents + p_re_taxes_nr + agi_bucket, data = train_re)
-summary(lr_tax)
-```
-
 Part 4: Compute predictions on all 3 models and compare results
 ```{r}
 lr_pca_preds <- pca_model %>% predict(as.data.frame(pca_test_re))
+lr_listing_preds <- lr_listing %>% predict(test_re)
 lr_comb_preds <- lr_comb %>% predict(test_re)
-lr_tax_preds <- lr_tax %>% predict(test_re)
 
 head(lr_pca_preds)
+head(lr_listing_preds)
 head(lr_comb_preds)
-head(lr_tax_preds)
 
 lr_pca_perf <- data.frame(RMSE = RMSE(lr_pca_preds, test_re$price), MAE = MAE(lr_pca_preds, test_re$price))
+lr_listing_perf <- data.frame(R_squared = R2(lr_listing_preds, test_re$price), RMSE = RMSE(lr_listing_preds, test_re$price), MAE = MAE(lr_listing_preds, test_re$price))
 lr_combined_perf <- data.frame(R_squared = R2(lr_comb_preds, test_re$price), RMSE = RMSE(lr_comb_preds, test_re$price), MAE = MAE(lr_comb_preds, test_re$price))
-lr_tax_perf <- data.frame(R_squared = R2(lr_tax_preds, test_re$price), RMSE = RMSE(lr_tax_preds, test_re$price), MAE = MAE(lr_tax_preds, test_re$price))
+
 
 lr_pca_perf
+lr_listing_perf
 lr_combined_perf
-lr_tax_perf
 ```
 
 -------------------------------------------------------------------------------
@@ -154,10 +155,35 @@ lr_tax_perf
 SECTION 3: LASSO REGRESSION
 
 
-Part 1: Build model using all features
+Part 1: Build model using only listing features
+```{r}
+listing_predictors <- as.matrix(train_re[,2:16])
+response <- as.matrix(train_re$price)
+
+# building lasso
+listing_lasso = cv.glmnet(x= listing_predictors, 
+                  y = response,
+                  alpha = 1,
+                  nfolds = 5,
+                  type.measure = "mse",
+                  family = "gaussian"
+                  )
+
+# best lambda
+listing_best_lambda <- listing_lasso$lambda.min
+paste('Best lambda: ',listing_best_lambda)
+
+#Output the 7 coefficients that lasso chose
+coef(listing_lasso, s = listing_lasso$lambda.min)
+
+# output plot of test MSE by lambda
+plot(listing_lasso)
+```
+
+
+Part 2: Build model using all features
 ```{r}
 all_predictors <- as.matrix(train_re[,2:27])
-response <- as.matrix(train_re$price)
 
 # building lasso
 comb_lasso = cv.glmnet(x= all_predictors, 
@@ -172,48 +198,23 @@ comb_lasso = cv.glmnet(x= all_predictors,
 comb_best_lambda <- comb_lasso$lambda.min
 paste('Best lambda: ',comb_best_lambda)
 
-#Output the 10 coefficients that lasso chose
+#Output the 8 coefficients that lasso chose
 coef(comb_lasso, s = comb_best_lambda)
 
 # plot MSE by log(lambda)
 plot(comb_lasso)
 ```
 
-Part 2: Build model using only tax features
-```{r}
-tax_predictors <- as.matrix(train_re[,17:27])
-
-# building lasso
-tax_lasso = cv.glmnet(x= tax_predictors, 
-                  y = response,
-                  alpha = 1,
-                  nfolds = 5,
-                  type.measure = "mse",
-                  family = "gaussian"
-                  )
-
-# best lambda
-tax_best_lambda <- tax_lasso$lambda.min
-paste('Best lambda: ',tax_best_lambda)
-
-#Output the 10 coefficients that lasso chose
-coef(tax_lasso, s = tax_lasso$lambda.min)
-
-# output plot of test MSE by lambda
-plot(tax_lasso)
-```
-
 Part 3: Compute predictions on the 2 models and compare results
 ```{r}
+lr_lasso_listing_predictions <- predict(listing_lasso, s = listing_best_lambda, newx = as.matrix(test_re[,2:16]))
 lr_lasso_comb_predictions <- predict(comb_lasso, s = comb_best_lambda, newx = as.matrix(test_re[,2:27]))
-lr_lasso_tax_predictions <- predict(tax_lasso, s = tax_best_lambda, newx = as.matrix(test_re[,17:27]))
 
+lr_lasso_listing_perf <- data.frame(R_squared = R2(lr_lasso_listing_predictions, test_re$price), RMSE = RMSE(lr_lasso_listing_predictions, test_re$price), MAE = MAE(lr_lasso_listing_predictions, test_re$price))
 lr_lasso_comb_perf <- data.frame(R_squared = R2(lr_lasso_comb_predictions, test_re$price), RMSE = RMSE(lr_lasso_comb_predictions, test_re$price), MAE = MAE(lr_lasso_comb_predictions, test_re$price))
 
-lr_lasso_tax_perf <- data.frame(R_squared = R2(lr_lasso_tax_predictions, test_re$price), RMSE = RMSE(lr_lasso_tax_predictions, test_re$price), MAE = MAE(lr_lasso_tax_predictions, test_re$price))
-
+lr_lasso_listing_perf
 lr_lasso_comb_perf
-lr_lasso_tax_perf
 ```
 
 
@@ -222,7 +223,17 @@ lr_lasso_tax_perf
 SECTION 4: RANDOM FOREST
 
 
-Part 1: Build model using all features
+Part 1: Build model using only listing features
+```{r}
+rf_listing_model <- randomForest(x = train_re[,2:16],
+                         y = train_re[,1],
+                         ntree = 128
+                         )
+
+rf_listing_model
+```
+
+Part 2: Build model using all features
 ```{r}
 rf_comb_model <- randomForest(x = train_re[,2:27],
                          y = train_re[,1],
@@ -232,27 +243,17 @@ rf_comb_model <- randomForest(x = train_re[,2:27],
 rf_comb_model
 ```
 
-Part 2: Build model using only tax features
-```{r}
-rf_tax_model <- randomForest(x = train_re[,17:27],
-                         y = train_re[,1],
-                         ntree = 128
-                         )
-
-rf_tax_model
-```
-
 Part 3: Compute predictions on the 2 models and compare results
 ```{r}
+rf_listing_preds <- predict(rf_listing_model, test_re[,2:16])
 rf_comb_preds <- predict(rf_comb_model, test_re[,2:27])
-rf_tax_preds <- predict(rf_tax_model, test_re[,17:27])
 
 
+rf_listing_perf <- data.frame(R_squared = R2(rf_listing_preds, test_re$price), RMSE = RMSE(rf_listing_preds, test_re$price), MAE = MAE(rf_listing_preds, test_re$price))
 rf_comb_perf <- data.frame(R_squared = R2(rf_comb_preds, test_re$price), RMSE = RMSE(rf_comb_preds, test_re$price), MAE = MAE(rf_comb_preds, test_re$price))
-rf_tax_perf <- data.frame(R_squared = R2(rf_tax_preds, test_re$price), RMSE = RMSE(rf_tax_preds, test_re$price), MAE = MAE(rf_tax_preds, test_re$price))
 
+rf_listing_perf
 rf_comb_perf
-rf_tax_perf
 ```
 
 -------------------------------------------------------------------------------
@@ -260,7 +261,17 @@ rf_tax_perf
 SECTION 5: XGBOOST
 
 
-Part 1: Build model using all predictors
+Part 1: Build model using only listing features
+```{r}
+# train a model using our training data
+xgb_listing_model <- xgboost(data = listing_predictors,
+                     label = response,
+                     max.depth = 3,
+                     nrounds = 50
+                     )
+```
+
+Part 2: Build model using all features
 ```{r}
 xgb_comb_model <- xgboost(data = all_predictors,
                      label = response,
@@ -269,28 +280,16 @@ xgb_comb_model <- xgboost(data = all_predictors,
                      )
 ```
 
-Part 2: Build model using only tax predictors
-```{r}
-# train a model using our training data
-xgb_tax_model <- xgboost(data = tax_predictors,
-                     label = response,
-                     max.depth = 3,
-                     nrounds = 50
-                     )
-```
-
-
 Part 3: Compute predictions on the 2 models and compare results
 ```{r}
-# generate predictions for our held-out testing data
+xgb_listing_preds <- predict(xgb_listing_model, as.matrix(test_re[,2:16]))
 xgb_comb_preds <- predict(xgb_comb_model, as.matrix(test_re[,2:27]))
-xgb_tax_preds <- predict(xgb_tax_model, as.matrix(test_re[,17:27]))
 
+xgb_listing_perf <- data.frame(R_squared = R2(xgb_listing_preds, test_re$price), RMSE = RMSE(xgb_listing_preds, test_re$price), MAE = MAE(xgb_listing_preds, test_re$price))
 xgb_comb_perf <- data.frame(R_squared = R2(xgb_comb_preds, test_re$price), RMSE = RMSE(xgb_comb_preds, test_re$price), MAE = MAE(xgb_comb_preds, test_re$price))
-xgb_tax_perf <- data.frame(R_squared = R2(xgb_tax_preds, test_re$price), RMSE = RMSE(xgb_tax_preds, test_re$price), MAE = MAE(xgb_tax_preds, test_re$price))
 
+xgb_listing_perf
 xgb_comb_perf
-xgb_tax_perf
 ```
 
 
