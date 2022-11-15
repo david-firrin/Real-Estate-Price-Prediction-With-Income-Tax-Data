@@ -1,0 +1,164 @@
+---
+title: "Project EDA"
+output: html_document
+date: "2022-11-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+```
+
+
+```{r} 
+
+data <- read.csv("merged_data_vF.csv")  
+
+subData = data[,c(4,5,6,9,14,18,19,20,21,22,23,24,25,26,27)]
+head(subData)
+summary(subData)
+
+```
+
+
+```{r}
+data1 = subData[c(1,2,3)]
+data2 = subData[c(1,4,5)]
+data3 = subData[c(1,6,7)]
+data4 = subData[c(1,8,9)]
+data5 = subData[c(1,10,11)]
+data6 = subData[c(1,12,13)]
+data7 = subData[c(1,14,15)]
+pairs(data1)
+pairs(data2)
+pairs(data3)
+pairs(data4)
+pairs(data5)
+pairs(data6)
+pairs(data7)
+
+```
+
+
+```{r}
+pairs(subData)
+```
+
+
+```{r}
+cormat = round(cor(subData),2)
+cormat
+
+```
+
+
+```{r}
+library(reshape2)
+melted_cormat <- melt(cormat)
+head(melted_cormat)
+
+```
+
+
+```{r}
+library(ggplot2)
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value))+ 
+  geom_tile()+theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+```
+
+```{r}
+head(subData)
+
+```
+
+
+
+```{r}
+corPrice_creditAmt = cor(subData$total_credit_amt,subData$price)
+sprintf("cor price and total_credit_amt: %f",corPrice_creditAmt)
+
+corPrice_taxIncome = cor(subData$taxable_income_amt,subData$price)
+sprintf("cor price and taxable_income_amt: %f",corPrice_taxIncome)
+
+corPrice_mortAmt = cor(subData$mortgageint_amt,subData$price)
+sprintf("cor price and mortgageint_amt: %f",corPrice_mortAmt)
+
+corPrice_pMort = cor(subData$p_mortgageint_nr,subData$price)
+sprintf("cor price and p_mortgageint_nr: %f",corPrice_pMort)
+
+corPrice_incomeTax = cor(subData$inctax_amt,subData$price)
+sprintf("cor price and inctax_amt: %f",corPrice_incomeTax)
+
+corPrice_pUnemp = cor(subData$p_unemploy_nr,subData$price)
+sprintf("cor price and p_unemploy_nr: %f",corPrice_pUnemp)
+
+corPrice_agiAmt = cor(subData$agi_amt,subData$price)
+sprintf("cor price and agi_amt: %f",corPrice_agiAmt)
+
+corPrice_numDep = cor(subData$num_dependents,subData$price)
+sprintf("cor price and num_dependents: %f",corPrice_numDep)
+
+corPrice_pReTax = cor(subData$p_re_taxes_nr,subData$price)
+sprintf("cor price and p_re_taxes_nr: %f",corPrice_pReTax)
+
+corPrice_agiBucket = cor(subData$agi_bucket,subData$price)
+sprintf("cor price and agi_bucket: %f",corPrice_agiBucket)
+
+corPrice_bed = cor(subData$bed,subData$price)
+sprintf("cor price and bed: %f",corPrice_bed)
+
+corPrice_houseSize = cor(subData$house_size,subData$price)
+sprintf("cor price and house_size: %f",corPrice_houseSize)
+
+corPrice_houseAcre = cor(subData$house.acre.lot,subData$price)
+sprintf("cor price and house_acre_lot: %f",corPrice_houseAcre)
+
+corPrice_bath = cor(subData$bath,subData$price)
+sprintf("cor price and bath: %f",corPrice_bath)
+```
+According to Statology.com\
+r < 0.25 No relationship\
+0.25 < r < 0.5 Weak relationship\
+0.5 < r < 0.75 Moderate relationship\
+r > 0.75 Strong relationship\
+
+Weak correlations with price:\ 
+total_credit_amt, taxable_income_amt,inctax_amt, agi_amt, agi_bucket, house_size, bath
+
+No correlation with price:\ 
+mortgageint_amt, p_mortgageint_nr, p_unemploy_nr, num_dependents, p_re_taxes_nr, bed, house_acre_lot
+
+
+```{r}
+par(mfrow=c(2,3))
+boxplot(subData$price,main="price")
+boxplot(subData$total_credit_amt,main="total_credit_amt")
+boxplot(subData$taxable_income_amt,main="taxable_income_amt")
+boxplot(subData$mortgageint_amt,main="mortgageint_amt")
+boxplot(subData$p_mortgageint_nr,main="p_mortgageint_nr")
+boxplot(subData$inctax_amt,main="inctax_amt")
+```
+```{r}
+par(mfrow=c(2,3))
+boxplot(subData$agi_amt,main="agi_amt")
+boxplot(subData$num_dependents,main="num_dependents")
+boxplot(subData$p_re_taxes_nr,main="p_re_taxes_nr")
+boxplot(subData$agi_bucket,main="agi_bucket")
+boxplot(subData$bed,main="bed")
+boxplot(subData$house_size,main="house_size")
+```
+```{r}
+par(mfrow=c(2,3))
+boxplot(subData$house.acre.lot,main="house_acre_lot")
+boxplot(subData$bath,main="bath")
+```
+
+
+
+
+
+
+
+
+
