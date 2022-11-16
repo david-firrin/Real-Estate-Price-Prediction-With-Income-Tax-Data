@@ -1,0 +1,9 @@
+## Packages Required
+The packages used in this project are as follows. We aren't aware of a `requirements.txt` equivalent in R, but the packages below can be installed using 'install.packages()'.
+- tidyverse (includes dplyr)
+- caret
+- randomForest
+- stats
+- glmnet
+- xgboost
+- fastDummies
