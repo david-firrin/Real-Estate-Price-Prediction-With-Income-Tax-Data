@@ -179,6 +179,15 @@ final_re$bed <- ifelse(is.na(final_re$bed) & final_re$bath == 1, 0, final_re$bed
 write.csv(final_re, file = "../Data/merged_data.csv")
 ```
 
+```{r}
+final_re$house <- abs((grepl('ph', tolower(final_re$full_address)) | grepl('unit', tolower(final_re$full_address)) | grepl('apt', tolower(final_re$full_address)))*1 - 1)
+final_re$`house*acre lot` <- final_re$acre_lot*final_re$house
+final_re$`house*acre lot`[is.na(final_re$`house*acre lot`)] <- 0
+final_re <- final_re[order(final_re$full_address),c(1, 2, 3, 4, 5, 25, 6, 26, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24)]
+write.csv(final_re, file = "../Data/merged_data_vF.csv")
+```
+
+
 Final check for rows with incomplete data from the join, excluding acre_lot
 ```{r}
 missing <- final_re %>% select(-acre_lot)

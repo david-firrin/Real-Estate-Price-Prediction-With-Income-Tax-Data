@@ -12,7 +12,7 @@ library(dplyr)
 
 ```{r} 
 
-data <- read.csv("merged_data_vF.csv")  
+data <- read.csv("../Data/merged_data_vF.csv")  
 
 subData = data[,c(4,5,6,9,14,18,19,20,21,22,23,24,25,26,27)]
 head(subData)
