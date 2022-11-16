@@ -42,6 +42,6 @@ Please see below for general descriptions of the directory.
 > - **Final Code:** Final R-markdown notebooks as well as .html versions with outputs included.. *These should be referenced as master versions of code*
 > - **Final Presentation Slides:** Powerpoint file with final presentation slides. **This also includes the .txt file with our final presentation link**
 > - **Final Report:** Word and PDF docs with final report file
-> - **Progress Presentation:** Powerpoint file with progress report presentation slides
+> - **Progress Presentation:** Powerpoint and PDF files with progress report presentation slides
 > - **Progress Report:** Word and PDF docs with progress report file and R-markdown file with code to pull some additional figures
 > - **Project Proposal:** Word and PDF docs with project proposal file
