@@ -40,7 +40,7 @@ Please see below for general descriptions of the directory.
 
 > - **Data:** Raw and processed data for use during models. The 'Raw' directory will contain a .md file with description of how to download the data
 > - **Final Code:** Final R-markdown notebooks as well as .html versions with outputs included.. *These should be referenced as master versions of code*
-> - **Final Presentation Slides:** Powerpoint file with final presentation slides
+> - **Final Presentation Slides:** Powerpoint file with final presentation slides. **This also includes the .txt file with our final presentation link**
 > - **Final Report:** Word and PDF docs with final report file
 > - **Progress Presentation:** Powerpoint file with progress report presentation slides
 > - **Progress Report:** Word and PDF docs with progress report file and R-markdown file with code to pull some additional figures
