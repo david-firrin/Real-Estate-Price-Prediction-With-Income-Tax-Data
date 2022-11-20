@@ -3,7 +3,7 @@ Team 48's group project GitHub repository for MGT 6203 (Canvas) Fall of 2022 sem
 
 # Final Deliverable Directory Locations
 - **Final Report** - Final Report > team48finalreport.pdf
-- **Slides for Final Presentation** - Final Presentation Slides > team48finalpresentation.pdf
+- **Slides for Final Presentation** - Final Presentation Slides > team48finalslides.pptx
 - **Final Presentation YouTube Link** - Final Presentation Slides > team48finalpresentationlink.txt	
 
 # Installation & Running Instructions
