@@ -43,7 +43,7 @@ To perform model selection and evaluation, simply run the notebook at Final Code
 # Directory Overview
 Please see below for general descriptions of the directory.
 
-> - **Data:** Raw and processed data for use during models. The 'Raw' directory will contain a .md file with description of how to download the data
+> - **Data:** Raw and processed data for use during models. The 'Raw' directory contains a fiel titled 'data.md' with a description of how to download the data
 > - **Final Code:** Final R-markdown notebooks as well as .html versions with outputs included.. *These should be referenced as master versions of code*
 > - **Final Presentation Slides:** Powerpoint file with final presentation slides. **This also includes the .txt file with our final presentation link**
 > - **Final Report:** Word and PDF docs with final report file
